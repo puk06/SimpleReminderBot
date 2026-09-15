@@ -166,11 +166,12 @@ function scheduleReminder(reminder) {
         const mention = getMentionData(reminder);
         const notification = [
           ...(mention.mentionText ? [mention.mentionText, ''] : []),
-          `## __${reminder.title}#${reminder.id}__`,
+          `# __${reminder.title}__`,
           '',
-          `**日時:** ${formatDate(reminder.at)}`,
+          `**日時:** \`${formatDate(reminder.at)}\``,
+          `**リマインダーID:** \`${reminder.id}\``,
           '',
-          '**内容**',
+          '## **内容**',
           reminder.content,
         ].join('\n');
         await channel.send({
