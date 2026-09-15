@@ -165,7 +165,7 @@ function scheduleReminder(reminder) {
       if (channel?.isTextBased()) {
         const mention = getMentionData(reminder);
         await channel.send({
-          content: `${mention.mentionText}${mention.mentionText ? ' ' : ''}**${reminder.title}#${reminder.id}**\n${reminder.content}`,
+          content: `##${reminder.title}\n\n${reminder.content}\n\n ### メンション\n${mention.text}`,
           allowedMentions: { users: mention.users, roles: reminder.roles },
         });
       }
@@ -231,7 +231,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.reply(
       {
-        content: `リマインダー **\`${title}#${id}\`** を登録しました。\n\`${formatDate(at)}\` に送信します。${mention.text ? `\n対象: \`${mention.text}\`` : ''}\n他の人は \`\/join id:${id}\` で参加できます。`,
+        content: `リマインダー **\`${title}#${id}\`** を登録しました。\n\`${formatDate(at)}\` に送信します。\n他の人は \`\/join id:${id}\` で参加できます。`,
         allowedMentions: { parse: [] },
       },
     );
