@@ -153,6 +153,16 @@ function getMentionData(reminder) {
   return { users, mentionText };
 }
 
+function formatReminder(reminder, mentionText = '') {
+  return [
+    ...(mentionText ? [mentionText] : []),
+    `## __${reminder.title}#${reminder.id}__`,
+    `**日時:** \`${formatDate(reminder.at)}\``,
+    '**内容**',
+    reminder.content,
+  ].join('\n\n');
+}
+
 function scheduleReminder(reminder) {
   const delay = reminder.at.getTime() - Date.now();
   if (delay > 2_147_483_647) {
@@ -164,16 +174,8 @@ function scheduleReminder(reminder) {
       const channel = await client.channels.fetch(reminder.channelId);
       if (channel?.isTextBased()) {
         const mention = getMentionData(reminder);
-        const notification = [
-          ...(mention.mentionText ? [mention.mentionText] : []),
-          `# リマインダー : 「__${reminder.title}__」`,
-          `**日時:** \`${formatDate(reminder.at)}\``,
-          `**リマインダーID:** \`${reminder.id}\``,
-          '## **内容**',
-          reminder.content,
-        ].join('\n');
         await channel.send({
-          content: notification,
+          content: formatReminder(reminder, mention.mentionText),
           allowedMentions: { users: mention.users, roles: reminder.roles },
         });
       }
@@ -258,8 +260,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.reply({
       content: subscribedReminders
         .sort((a, b) => a.at - b.at)
-        .map((reminder) => `**${reminder.title}#${reminder.id}** ${formatDate(reminder.at)}\n${reminder.content}`)
-        .join('\n\n'),
+        .map((reminder) => formatReminder(reminder))
+        .join('\n\n---\n\n'),
       ephemeral: true,
     });
     return;
