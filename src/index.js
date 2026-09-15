@@ -164,8 +164,17 @@ function scheduleReminder(reminder) {
       const channel = await client.channels.fetch(reminder.channelId);
       if (channel?.isTextBased()) {
         const mention = getMentionData(reminder);
+        const notification = [
+          ...(mention.mentionText ? [mention.mentionText, ''] : []),
+          `## __${reminder.title}#${reminder.id}__`,
+          '',
+          `**日時:** ${formatDate(reminder.at)}`,
+          '',
+          '**内容**',
+          reminder.content,
+        ].join('\n');
         await channel.send({
-          content: `##${reminder.title}\n\n${reminder.content}\n\n ### メンション\n${mention.text}`,
+          content: notification,
           allowedMentions: { users: mention.users, roles: reminder.roles },
         });
       }
