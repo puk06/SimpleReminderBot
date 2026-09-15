@@ -165,7 +165,7 @@ function scheduleReminder(reminder) {
       if (channel?.isTextBased()) {
         const mention = getMentionData(reminder);
         const notification = [
-          ...(mention.mentionText ? [mention.mentionText, ''] : []),
+          ...(mention.mentionText ? [mention.mentionText] : []),
           `# リマインダー : 「__${reminder.title}__」`,
           `**日時:** \`${formatDate(reminder.at)}\``,
           `**リマインダーID:** \`${reminder.id}\``,
