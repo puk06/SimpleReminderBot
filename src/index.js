@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   Client,
@@ -17,6 +19,8 @@ if (!token) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const reminders = new Map();
 const nextReminderIds = new Map();
+const dataDirectory = path.join(__dirname, '..', 'data');
+const dataFile = path.join(dataDirectory, 'reminders.json');
 
 function getNextReminderId(guildId) {
   const id = nextReminderIds.get(guildId) ?? 1;
@@ -26,6 +30,59 @@ function getNextReminderId(guildId) {
 
 function getReminderKey(guildId, id) {
   return `${guildId}:${id}`;
+}
+
+function saveReminders() {
+  fs.mkdirSync(dataDirectory, { recursive: true });
+  const data = [...reminders.values()].map((reminder) => ({
+    id: reminder.id,
+    guildId: reminder.guildId,
+    userId: reminder.userId,
+    channelId: reminder.channelId,
+    title: reminder.title,
+    content: reminder.content,
+    at: reminder.at.toISOString(),
+    subscribers: [...reminder.subscribers],
+    roles: reminder.roles,
+  }));
+  fs.writeFileSync(dataFile, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+}
+
+function loadReminders() {
+  if (!fs.existsSync(dataFile)) return;
+
+  let storedReminders;
+  try {
+    storedReminders = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+  } catch (error) {
+    console.error('reminders.json の読み込みに失敗しました。空の状態で起動します:', error);
+    return;
+  }
+
+  if (!Array.isArray(storedReminders)) return;
+
+  for (const stored of storedReminders) {
+    const at = new Date(stored.at);
+    if (!stored.guildId || !stored.id || !stored.channelId || !stored.title || !stored.content
+      || Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) continue;
+
+    const reminder = {
+      ...stored,
+      key: getReminderKey(stored.guildId, String(stored.id)),
+      id: String(stored.id),
+      at,
+      subscribers: new Set(Array.isArray(stored.subscribers) ? stored.subscribers : []),
+      roles: Array.isArray(stored.roles) ? stored.roles : [],
+    };
+    if (reminders.has(reminder.key)) continue;
+
+    reminders.set(reminder.key, reminder);
+    const numericId = Number(reminder.id);
+    if (Number.isInteger(numericId)) {
+      nextReminderIds.set(reminder.guildId, Math.max(nextReminderIds.get(reminder.guildId) ?? 1, numericId + 1));
+    }
+    scheduleReminder(reminder);
+  }
 }
 
 function parseDate(value) {
@@ -116,6 +173,7 @@ function scheduleReminder(reminder) {
       console.error(`リマインダー \`${reminder.id}\` の送信に失敗しました:`, error);
     } finally {
       reminders.delete(reminder.key);
+      saveReminders();
     }
   }, delay);
 }
@@ -168,6 +226,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       roles: mention.roles,
     };
     reminders.set(reminder.key, reminder);
+    saveReminders();
     scheduleReminder(reminder);
 
     await interaction.reply(
@@ -212,12 +271,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
       reminder.subscribers.add(interaction.user.id);
+      saveReminders();
       await interaction.reply(`リマインダー **\`${id}\`** に参加しました。通知時にメンションします。`);
     } else {
       if (!reminder.subscribers.delete(interaction.user.id)) {
         await interaction.reply({ content: `リマインダー **\`${id}\`** には参加していません。`, ephemeral: true });
         return;
       }
+      saveReminders();
       await interaction.reply(`リマインダー **\`${id}\`** の通知から外れました。`);
     }
     return;
@@ -233,8 +294,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     clearTimeout(reminder.timer);
     reminders.delete(reminder.key);
+    saveReminders();
     await interaction.reply(`リマインダー **\`${id}\`** をキャンセルしました。`);
   }
 });
 
+loadReminders();
 client.login(token);
